@@ -24,11 +24,13 @@ var canvas = document.getElementById("canvas");
 var ctx = canvas.getContext("2d")
 
 const Clock = new clock();
-var mousePos = { x: 0, y: 0 };
+var alarm = new Audio("test-alarm.mp3");
+var mousePos = { x: undefined, y: undefined };
 var mouseDist = 0;
 var scale = 0;
 var radius = 0;
 var angle = 0;
+var alarmAngles = [];
 
 function drawLine(angle, start, end, strokeWidth = ctx.lineWidth) {
     ctx.lineWidth = strokeWidth;
@@ -38,25 +40,23 @@ function drawLine(angle, start, end, strokeWidth = ctx.lineWidth) {
     ctx.stroke();
 }
 
-function drawPointer(angle) {
-    var textX = canvas.width/2 + Math.sin(angle)*Math.sign(mousePos.y)*(radius*1.135);
-    var textY = canvas.height/2 - Math.cos(angle)*Math.sign(mousePos.y)*(radius*1.135);
-    var hour = Math.floor((angle/(Math.atan(0) + Math.PI) - 0.5 + 1*(mousePos.y > 0))/2 * 12 + 9) % 12;
-    var minute = Math.floor((angle/(Math.atan(0) + Math.PI) - 0.5 + 1*(mousePos.y > 0))/(1/6) % 1 * 60) % 60;
+function drawPointer(angle, hour = 0, minute = 0, sign, color = "white") {
+    var textX = canvas.width/2 + Math.sin(angle)*sign*(radius*1.135);
+    var textY = canvas.height/2 - Math.cos(angle)*sign*(radius*1.135);
     var time = "";
 
     ctx.lineWidth = scale/300;
-    ctx.fillStyle = "white";
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(canvas.width/2 + Math.sin(angle)*Math.sign(mousePos.y)*(radius*0.95), canvas.height/2 - Math.cos(angle)*Math.sign(mousePos.y)*(radius*0.95));
-    ctx.lineTo(canvas.width/2 + Math.sin(angle+0.05)*Math.sign(mousePos.y)*(radius), canvas.height/2 - Math.cos(angle+0.05)*Math.sign(mousePos.y)*(radius));
-    ctx.lineTo(canvas.width/2 + Math.sin(angle+0.04)*Math.sign(mousePos.y)*(radius*1.3), canvas.height/2 - Math.cos(angle+0.04)*Math.sign(mousePos.y)*(radius*1.3));
-    ctx.lineTo(canvas.width/2 + Math.sin(angle-0.04)*Math.sign(mousePos.y)*(radius*1.3), canvas.height/2 - Math.cos(angle-0.04)*Math.sign(mousePos.y)*(radius*1.3));
-    ctx.lineTo(canvas.width/2 + Math.sin(angle-0.05)*Math.sign(mousePos.y)*(radius), canvas.height/2 - Math.cos(angle-0.05)*Math.sign(mousePos.y)*(radius));
-    ctx.lineTo(canvas.width/2 + Math.sin(angle)*Math.sign(mousePos.y)*(radius*0.95), canvas.height/2 - Math.cos(angle)*Math.sign(mousePos.y)*(radius*0.95));
+    ctx.moveTo(canvas.width/2 + Math.sin(angle)*sign*(radius*0.95), canvas.height/2 - Math.cos(angle)*sign*(radius*0.95));
+    ctx.lineTo(canvas.width/2 + Math.sin(angle+0.05)*sign*(radius), canvas.height/2 - Math.cos(angle+0.05)*sign*(radius));
+    ctx.lineTo(canvas.width/2 + Math.sin(angle+0.04)*sign*(radius*1.3), canvas.height/2 - Math.cos(angle+0.04)*sign*(radius*1.3));
+    ctx.lineTo(canvas.width/2 + Math.sin(angle-0.04)*sign*(radius*1.3), canvas.height/2 - Math.cos(angle-0.04)*sign*(radius*1.3));
+    ctx.lineTo(canvas.width/2 + Math.sin(angle-0.05)*sign*(radius), canvas.height/2 - Math.cos(angle-0.05)*sign*(radius));
+    ctx.lineTo(canvas.width/2 + Math.sin(angle)*sign*(radius*0.95), canvas.height/2 - Math.cos(angle)*sign*(radius*0.95));
     ctx.fill();
     ctx.stroke();
-
+    
     time += hour > 9? "" : "0";
     time += hour + ":";
     time += minute > 9? "" : "0";
@@ -82,9 +82,17 @@ function load() {
         scale = canvas.width;
     }
 
-    window.addEventListener('mousemove', (event) => {
+    window.addEventListener("mousemove", (event) => {
         mousePos = { x: event.clientX - window.innerWidth/2 - scale*0.01, y: event.clientY - window.innerHeight/2 - scale*0.01};
     });
+    window.addEventListener("mouseup", (event) => {
+        if (!event.button) {
+            var hour = Math.floor((angle/(Math.atan(0) + Math.PI) - 0.5 + 1*(mousePos.y > 0))/2 * 12 + 9) % 12;
+            var minute = Math.floor((angle/(Math.atan(0) + Math.PI) - 0.5 + 1*(mousePos.y > 0))/(1/6) % 1 * 60) % 60;
+            alarmAngles.push({_angle: angle, _hour: hour, _minute: minute, sign: Math.sign(mousePos.y), stoped: false});
+        }
+    });
+
     setInterval(update, 1);
 }
 
@@ -122,12 +130,22 @@ function update() {
     
     Clock.update();
 
-    drawLine(Math.floor(Clock.second-30 + 0.5)/60 * 2 * Math.PI, 0, radius*0.8);
+    drawLine(Math.floor(Clock.second + 0.5)/60 * 2 * Math.PI, 0, radius*0.8);
     drawLine(Clock.minute/60 * 2 * Math.PI, 0, radius*0.75, scale/250);
     drawLine(Clock.hour/12 * 2 * Math.PI, 0, radius*0.5, scale/200);
 
     if (mouseDist < radius*1.5) {
-        var angle = -Math.atan(mousePos.x/mousePos.y) + Math.PI;
-        drawPointer(angle);
+        angle = -Math.atan(mousePos.x/mousePos.y) + Math.PI;
+        var hour = Math.floor((angle/(Math.atan(0) + Math.PI) - 0.5 + 1*(mousePos.y > 0))/2 * 12 + 9) % 12;
+        var minute = Math.floor((angle/(Math.atan(0) + Math.PI) - 0.5 + 1*(mousePos.y > 0))/(1/6) % 1 * 60) % 60;
+
+        drawPointer(angle, hour, minute, Math.sign(mousePos.y));
     }
+    
+    alarmAngles.forEach(data => {
+        drawPointer(data._angle, data._hour, data._minute, data.sign);
+        if (data._hour == (Math.floor(Clock.hour) % 12) && data._minute == Math.floor(Clock.minute) && !data.stoped) {
+            alarm.play();
+        }
+    });
 }
